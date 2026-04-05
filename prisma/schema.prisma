@@ -1,0 +1,398 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String   @db.VarChar(255)
+  slug        String   @unique @db.VarChar(100)
+  status      TenantStatus @default(ACTIVE)
+  plan        PlanTier @default(FREE)
+  logo        String?  @db.Text
+  website     String?  @db.VarChar(500)
+  country     String?  @db.VarChar(50)
+  timezone    String   @default("UTC") @db.VarChar(50)
+  storageUsed BigInt   @default(0) @db.BigInt
+  storageLimit BigInt  @default(1073741824) @db.BigInt
+  userCount   Int      @default(0)
+  userLimit   Int      @default(1)
+  createdAt   DateTime @default(now()) @db.Timestamp(0)
+  updatedAt   DateTime @updatedAt @db.Timestamp(0)
+  trialEndsAt DateTime? @db.Timestamp(0)
+
+  users         User[]
+  subscriptions Subscription[]
+  jobs          Job[]
+  diskImages    DiskImage[]
+  apiKeys       ApiKey[]
+  webhooks      Webhook[]
+  auditLogs     AuditLog[]
+  userInvites   UserInvite[]
+  recoveryJobs   RecoveryJob[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+enum PlanTier {
+  FREE
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique @db.VarChar(255)
+  passwordHash     String   @db.VarChar(255)
+  firstName        String   @db.VarChar(100)
+  lastName         String   @db.VarChar(100)
+  avatar           String?  @db.Text
+  role             UserRole @default(MEMBER)
+  status           UserStatus @default(ACTIVE)
+  emailVerified    Boolean  @default(false)
+  twoFactorEnabled Boolean  @default(false)
+  twoFactorSecret  String?  @db.VarChar(255)
+  createdAt        DateTime @default(now()) @db.Timestamp(0)
+  updatedAt        DateTime @updatedAt @db.Timestamp(0)
+  lastLoginAt      DateTime? @db.Timestamp(0)
+
+  tenantId         String?
+  tenant           Tenant?  @relation(fields: [tenantId], references: [id])
+  
+  sessions         Session[]
+  refreshTokens    RefreshToken[]
+  passwordResets   PasswordReset[]
+  auditLogs        AuditLog[]
+  jobs             Job[]
+  recoveryJobs     RecoveryJob[]
+
+  @@index([email])
+  @@index([tenantId])
+  @@index([status])
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  FORENSIC_ANALYST
+  RECOVERY_TECHNICIAN
+  SUPPORT_ENGINEER
+  BILLING_ADMIN
+  TEAM_MANAGER
+  MEMBER
+  GUEST
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?  @db.VarChar(45)
+  userAgent String?  @db.Text
+  createdAt DateTime @default(now()) @db.Timestamp(0)
+  expiresAt DateTime @db.Timestamp(0)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique @db.VarChar(255)
+  createdAt DateTime @default(now()) @db.Timestamp(0)
+  expiresAt DateTime @db.Timestamp(0)
+  revokedAt DateTime? @db.Timestamp(0)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique @db.VarChar(255)
+  expiresAt DateTime @db.Timestamp(0)
+  usedAt    DateTime? @db.Timestamp(0)
+  createdAt DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([userId])
+}
+
+model Job {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  name         String    @db.VarChar(255)
+  description  String?   @db.Text
+  status       JobStatus @default(PENDING)
+  type         JobType
+  sourceType   SourceType
+  sourceId     String?   @db.VarChar(255)
+  progress     Int       @default(0)
+  filesFound   Int       @default(0)
+  filesRecovered Int     @default(0)
+  storageUsed  BigInt    @default(0) @db.BigInt
+  fileSystem   FileSystemType?
+  startedAt    DateTime? @db.Timestamp(0)
+  completedAt  DateTime? @db.Timestamp(0)
+  error        String?   @db.Text
+  settings     Json      @default("{}")
+  createdAt    DateTime  @default(now()) @db.Timestamp(0)
+  updatedAt    DateTime  @updatedAt @db.Timestamp(0)
+
+  diskImage    DiskImage? @relation(fields: [diskImageId], references: [id])
+  diskImageId  String?
+  files        RecoveredFile[]
+  recoveryJobs RecoveryJob[]
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum JobStatus {
+  PENDING
+  QUEUED
+  SCANNING
+  PAUSED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum JobType {
+  QUICK_SCAN
+  DEEP_SCAN
+  SIGNATURE_SCAN
+  CARVING
+  RAID_RECOVERY
+  PARTITION_RECOVERY
+  CLOUD_BACKUP
+  FORENSIC
+}
+
+enum SourceType {
+  UPLOAD
+  AGENT
+  CLOUD
+}
+
+enum FileSystemType {
+  NTFS
+  FAT32
+  EXFAT
+  EXT2
+  EXT3
+  EXT4
+  XFS
+  BTRFS
+  HFS_PLUS
+  APFS
+  UNKNOWN
+}
+
+model DiskImage {
+  id           String        @id @default(cuid())
+  tenantId     String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  name         String        @db.VarChar(255)
+  originalName String        @db.VarChar(255)
+  size         BigInt        @db.BigInt
+  hash         String        @db.VarChar(255)
+  fileSystem   FileSystemType?
+  partitions   Json          @default("[]")
+  uploadedAt   DateTime      @default(now()) @db.Timestamp(0)
+  processedAt  DateTime?     @db.Timestamp(0)
+  status       ImageStatus   @default(UPLOADING)
+  url          String?       @db.Text
+
+  jobs         Job[]
+
+  @@index([tenantId])
+  @@index([hash])
+}
+
+enum ImageStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+}
+
+model RecoveredFile {
+  id                  String   @id @default(cuid())
+  jobId               String
+  job                 Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  name                String   @db.VarChar(255)
+  originalPath        String   @db.Text
+  currentPath         String?  @db.Text
+  size                BigInt   @db.BigInt
+  type                String   @db.VarChar(50)
+  extension           String   @db.VarChar(20)
+  hash                String?  @db.VarChar(255)
+  recoverable         Boolean  @default(true)
+  recoveryProbability Int
+  isFragmented        Boolean  @default(false)
+  createdAt           DateTime @default(now()) @db.Timestamp(0)
+  modifiedAt          DateTime? @db.Timestamp(0)
+  deletedAt           DateTime? @db.Timestamp(0)
+  previewAvailable    Boolean  @default(false)
+  metadata            Json     @default("{}")
+
+  @@index([jobId])
+  @@index([type])
+}
+
+model UserInvite {
+  id          String        @id @default(cuid())
+  email       String        @db.VarChar(255)
+  role        UserRole
+  department  String?       @db.VarChar(100)
+  status      InviteStatus  @default(PENDING)
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  invitedBy   String
+  expiresAt   DateTime      @db.Timestamp(0)
+  createdAt   DateTime      @default(now()) @db.Timestamp(0)
+
+  @@index([tenantId])
+  @@index([email])
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+model RecoveryJob {
+  id           String            @id @default(cuid())
+  sourceJobId  String
+  sourceJob    Job              @relation(fields: [sourceJobId], references: [id])
+  userId       String
+  user         User              @relation(fields: [userId], references: [id])
+  status       RecoveryStatus   @default(PENDING)
+  totalSize   BigInt           @default(0) @db.BigInt
+  destination  Json
+  tenantId    String
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  createdAt   DateTime         @default(now()) @db.Timestamp(0)
+  completedAt  DateTime?        @db.Timestamp(0)
+
+  @@index([tenantId])
+  @@index([sourceJobId])
+}
+
+enum RecoveryStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  tenantId             String             @unique
+  tenant               Tenant             @relation(fields: [tenantId], references: [id])
+  planId               String             @db.VarChar(50)
+  plan                 PlanTier
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart   DateTime           @db.Timestamp(0)
+  currentPeriodEnd     DateTime           @db.Timestamp(0)
+  cancelAtPeriodEnd    Boolean            @default(false)
+  cancelledAt          DateTime?          @db.Timestamp(0)
+  trialEndsAt          DateTime?          @db.Timestamp(0)
+  stripeSubscriptionId String?            @db.VarChar(255)
+  stripeCustomerId     String?            @db.VarChar(255)
+  createdAt            DateTime           @default(now()) @db.Timestamp(0)
+  updatedAt            DateTime           @updatedAt @db.Timestamp(0)
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  TRIALING
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  UNPAID
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String   @db.VarChar(100)
+  resource    String   @db.VarChar(100)
+  resourceId  String?  @db.VarChar(255)
+  metadata    Json?
+  ipAddress   String?  @db.VarChar(45)
+  userAgent   String?  @db.Text
+  timestamp   DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([action])
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String   @db.VarChar(100)
+  keyHash     String   @unique @db.VarChar(255)
+  keyPrefix   String   @db.VarChar(20)
+  permissions Json     @default("[]")
+  lastUsedAt  DateTime? @db.Timestamp(0)
+  expiresAt   DateTime? @db.Timestamp(0)
+  createdAt   DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([tenantId])
+  @@index([keyHash])
+}
+
+model Webhook {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  url       String   @db.Text
+  events    Json     @default("[]")
+  secret    String   @db.VarChar(255)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([tenantId])
+}

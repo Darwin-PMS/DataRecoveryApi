@@ -1,0 +1,203 @@
+{
+  "tenants": [
+    {
+      "id": "tenant-1",
+      "name": "Acme Corporation",
+      "slug": "acme-corp",
+      "status": "ACTIVE",
+      "plan": "PRO",
+      "userLimit": 50,
+      "storageLimit": 107374182400,
+      "storageUsed": 53687091200,
+      "timezone": "America/New_York"
+    },
+    {
+      "id": "tenant-2", 
+      "name": "TechStart Inc",
+      "slug": "techstart",
+      "status": "ACTIVE",
+      "plan": "BUSINESS",
+      "userLimit": 100,
+      "storageLimit": 536870912000,
+      "storageUsed": 134217728000,
+      "timezone": "America/Los_Angeles"
+    },
+    {
+      "id": "tenant-3",
+      "name": "DataSecure LLC",
+      "slug": "datasecure", 
+      "status": "ACTIVE",
+      "plan": "FREE",
+      "userLimit": 5,
+      "storageLimit": 10737418240,
+      "storageUsed": 2147483648,
+      "timezone": "Europe/London"
+    }
+  ],
+  "users": [
+    {
+      "id": "user-1",
+      "email": "john.smith@acme.com",
+      "firstName": "John",
+      "lastName": "Smith",
+      "role": "TENANT_ADMIN",
+      "tenantId": "tenant-1",
+      "passwordHash": "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYfZJZH9ZMy"
+    },
+    {
+      "id": "user-2",
+      "email": "sarah.johnson@acme.com", 
+      "firstName": "Sarah",
+      "lastName": "Johnson",
+      "role": "FORENSIC_ANALYST",
+      "tenantId": "tenant-1",
+      "passwordHash": "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYfZJZH9ZMy"
+    },
+    {
+      "id": "user-3",
+      "email": "mike.wilson@acme.com",
+      "firstName": "Mike", 
+      "lastName": "Wilson",
+      "role": "RECOVERY_TECHNICIAN",
+      "tenantId": "tenant-1",
+      "passwordHash": "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYfZJZH9ZMy"
+    },
+    {
+      "id": "user-4",
+      "email": "admin@techstart.com",
+      "firstName": "Admin",
+      "lastName": "User",
+      "role": "TENANT_ADMIN",
+      "tenantId": "tenant-2",
+      "passwordHash": "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYfZJZH9ZMy"
+    },
+    {
+      "id": "user-5",
+      "email": "demo@datasecure.com",
+      "firstName": "Demo",
+      "lastName": "User",
+      "role": "TENANT_ADMIN", 
+      "tenantId": "tenant-3",
+      "passwordHash": "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYfZJZH9ZMy"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "job-1",
+      "name": "Windows HDD Recovery",
+      "description": "Recover deleted files from Windows system drive",
+      "type": "QUICK_SCAN",
+      "status": "COMPLETED",
+      "progress": 100,
+      "filesFound": 1250,
+      "filesRecovered": 1187,
+      "tenantId": "tenant-1",
+      "userId": "user-1"
+    },
+    {
+      "id": "job-2",
+      "name": "Linux Server Deep Scan",
+      "description": "Comprehensive scan for lost partition",
+      "type": "DEEP_SCAN", 
+      "status": "COMPLETED",
+      "progress": 100,
+      "filesFound": 3450,
+      "filesRecovered": 2890,
+      "tenantId": "tenant-1",
+      "userId": "user-3"
+    },
+    {
+      "id": "job-3",
+      "name": "USB File Carving",
+      "description": "Raw data recovery from corrupted USB",
+      "type": "CARVING",
+      "status": "COMPLETED",
+      "progress": 100,
+      "filesFound": 890,
+      "filesRecovered": 654,
+      "tenantId": "tenant-1",
+      "userId": "user-2"
+    },
+    {
+      "id": "job-4",
+      "name": "Mac SSD Forensic",
+      "description": "Forensic analysis of MacBook SSD",
+      "type": "FORENSIC",
+      "status": "COMPLETED",
+      "progress": 100,
+      "filesFound": 5670,
+      "filesRecovered": 0,
+      "tenantId": "tenant-2",
+      "userId": "user-4"
+    },
+    {
+      "id": "job-5",
+      "name": "RAID Array Recovery",
+      "description": "Recover from RAID 5 failure",
+      "type": "RAID_RECOVERY",
+      "status": "IN_PROGRESS",
+      "progress": 67,
+      "filesFound": 1240,
+      "filesRecovered": 0,
+      "tenantId": "tenant-1", 
+      "userId": "user-1"
+    },
+    {
+      "id": "job-6",
+      "name": "Quick Scan Test",
+      "description": "Test scan on new image",
+      "type": "QUICK_SCAN",
+      "status": "PENDING",
+      "progress": 0,
+      "filesFound": 0,
+      "filesRecovered": 0,
+      "tenantId": "tenant-1",
+      "userId": "user-3"
+    }
+  ],
+  "diskImages": [
+    {
+      "id": "img-1",
+      "name": "Windows_System_HDD",
+      "originalName": "windows_primary_drive.img",
+      "size": 500000000000,
+      "hash": "a1b2c3d4e5f6g7h8i9j0",
+      "fileSystem": "NTFS",
+      "status": "READY",
+      "tenantId": "tenant-1"
+    },
+    {
+      "id": "img-2",
+      "name": "Linux_Server_Disk", 
+      "originalName": "ubuntu_server.img",
+      "size": 1000000000000,
+      "hash": "k9l8m7n6o5p4q3r2s1t0",
+      "fileSystem": "EXT4",
+      "status": "READY",
+      "tenantId": "tenant-1"
+    },
+    {
+      "id": "img-3",
+      "name": "USB_Recovery",
+      "originalName": "sandisk_cruzer.img",
+      "size": 32000000000,
+      "hash": "u1v2w3x4y5z6a7b8c9d0",
+      "fileSystem": "FAT32",
+      "status": "READY",
+      "tenantId": "tenant-1"
+    },
+    {
+      "id": "img-4",
+      "name": "MacBook_Pro_SSD",
+      "originalName": "macbook_pro.dmg",
+      "size": 250000000000,
+      "hash": "e1f2g3h4i5j6k7l8m9n0",
+      "fileSystem": "APFS",
+      "status": "READY",
+      "tenantId": "tenant-2"
+    }
+  ],
+  "recoveryRate": 94.2,
+  "totalFilesRecovered": 5737,
+  "activeUsers": 23
+}
