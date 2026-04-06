@@ -10,6 +10,16 @@ import {
   deleteJobHandler,
   getJobFilesHandler,
 } from "./controller";
+import {
+  createJobHandler as createJobEnhanced,
+  listJobsHandler as listJobsEnhanced,
+  getJobHandler as getJobEnhanced,
+  updateJobHandler as updateJobEnhanced,
+  updateJobStatusHandler,
+  cancelJobHandler as cancelJobEnhanced,
+  generateReportHandler,
+  getJobStatsHandler,
+} from "./enhancedController";
 import { createJobSchema } from "./schemas";
 import { authenticate, tenantIsolation, requireTenant } from "../../plugins/auth";
 
@@ -20,7 +30,7 @@ export async function jobRoutes(
   options: FastifyPluginOptions,
 ) {
   console.log('[JOB ROUTES] Registering routes');
-  
+
   app.addHook("onRequest", authenticate);
   app.addHook("preHandler", tenantIsolation());
 
@@ -50,4 +60,11 @@ export async function jobRoutes(
   app.delete("/:id", deleteJobHandler);
 
   app.get("/:id/files", getJobFilesHandler);
+
+  // Phase 5: Enhanced job endpoints
+  app.get("/stats", getJobStatsHandler);
+
+  app.put("/:id/status", updateJobStatusHandler);
+
+  app.post("/report", generateReportHandler);
 }

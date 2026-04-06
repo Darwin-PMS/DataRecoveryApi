@@ -8,6 +8,11 @@ import {
   carveHandler,
   analyzeTextHandler,
 } from './controller';
+import {
+  deepFileScan,
+  batchFileScan,
+  getFileSignatures,
+} from './enhancedController';
 import { authenticate } from '../../plugins/auth';
 
 export async function fileScannerRoutes(
@@ -16,19 +21,27 @@ export async function fileScannerRoutes(
 ) {
   app.addHook("onRequest", authenticate);
 
+  // Existing scanner endpoints
   app.post('/scan', scanFileHandler);
-  
+
   app.post('/analyze-image', analyzeImageHandler);
-  
+
   app.post('/steganalysis', steganalysisHandler);
-  
+
   app.post('/carve', carveHandler);
-  
+
   app.post('/carve-upload', carveHandler);
-  
+
   app.post('/analyze-text', analyzeTextHandler);
-  
+
   app.post('/encode', encodeHandler);
-  
+
   app.post('/decode', decodeHandler);
+
+  // Phase 2: Enhanced scanner endpoints
+  app.post('/deep-scan', deepFileScan);
+
+  app.post('/batch-scan', batchFileScan);
+
+  app.get('/signatures', getFileSignatures);
 }

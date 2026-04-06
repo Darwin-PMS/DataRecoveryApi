@@ -20,6 +20,12 @@ import { errorHandler } from './utils/error-handler';
 import { requestLogger } from './utils/logger';
 import { forensicRoutes } from './modules/forensic/routes';
 import { fileScannerRoutes } from './modules/fileScanner/routes';
+import { corruptedDiskModule } from './modules/corruptedDisk/routes';
+import { advancedForensicsModule } from './modules/advancedForensics/routes';
+import { caseManagementModule } from './modules/caseManagement/routes';
+import { evidenceModule } from './modules/evidence/routes';
+import { reportsModule } from './modules/reports/routes';
+import { auditLogModule } from './modules/auditLog/routes';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -30,11 +36,11 @@ async function buildApp() {
       transport:
         process.env.NODE_ENV === 'development'
           ? {
-              target: 'pino-pretty',
-              options: {
-                colorize: true,
-              },
-            }
+            target: 'pino-pretty',
+            options: {
+              colorize: true,
+            },
+          }
           : undefined,
     },
   });
@@ -97,7 +103,7 @@ async function buildApp() {
   await app.register(healthRoutes, { prefix: '/api/v1/health' });
   await app.register(forensicRoutes, { prefix: '/api/v1/forensic' });
   await app.register(fileScannerRoutes, { prefix: '/api/v1/scanner' });
-  
+
   console.log('[SERVER] Registering auth routes...');
   await app.register(authRoutes, { prefix: '/api/v1/auth' });
   console.log('[SERVER] Auth routes registered');
@@ -108,6 +114,35 @@ async function buildApp() {
   await app.register(diskImageRoutes, { prefix: '/api/v1/disk-images' });
   await app.register(fileRecoveryRoutes, { prefix: '/api/v1/files' });
   await app.register(teamRoutes, { prefix: '/api/v1/team' });
+
+  // Register new modules for corrupted disk recovery and advanced forensics
+  console.log('[SERVER] Registering corrupted disk recovery module...');
+  await app.register(corruptedDiskModule, { prefix: '/api/v1/recovery' });
+  console.log('[SERVER] Corrupted disk recovery module registered');
+
+  console.log('[SERVER] Registering advanced forensics module...');
+  await app.register(advancedForensicsModule, { prefix: '/api/v1/forensic' });
+  console.log('[SERVER] Advanced forensics module registered');
+
+  // Register case management module
+  console.log('[SERVER] Registering case management module...');
+  await app.register(caseManagementModule, { prefix: '/api/v1/cases' });
+  console.log('[SERVER] Case management module registered');
+
+  // Register evidence module
+  console.log('[SERVER] Registering evidence module...');
+  await app.register(evidenceModule, { prefix: '/api/v1/evidence' });
+  console.log('[SERVER] Evidence module registered');
+
+  // Register reports module
+  console.log('[SERVER] Registering reports module...');
+  await app.register(reportsModule, { prefix: '/api/v1/reports' });
+  console.log('[SERVER] Reports module registered');
+
+  // Register audit log module
+  console.log('[SERVER] Registering audit log module...');
+  await app.register(auditLogModule, { prefix: '/api/v1/audit-logs' });
+  console.log('[SERVER] Audit log module registered');
 
   return app;
 }

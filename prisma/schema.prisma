@@ -34,6 +34,7 @@ model Tenant {
   auditLogs     AuditLog[]
   userInvites   UserInvite[]
   recoveryJobs   RecoveryJob[]
+  forensicCases  ForensicCase[]
 
   @@index([slug])
   @@index([status])
@@ -195,12 +196,32 @@ enum JobType {
   PARTITION_RECOVERY
   CLOUD_BACKUP
   FORENSIC
+  CORRUPTED_DISK_ANALYSIS
+  CLONE_DAMAGED_DISK
+  FILESYSTEM_REPAIR
+  SSD_ANALYSIS
+  MEMORY_FORENSICS
+  TIMELINE_GENERATION
+  REGISTRY_ANALYSIS
+  BROWSER_FORENSICS
+  EMAIL_ANALYSIS
+  NETWORK_ANALYSIS
+  YARA_SCAN
+  IOC_EXTRACTION
+  STEGANALYSIS
+  ENCRYPTION_DETECTION
+  MOBILE_FORENSICS
 }
 
 enum SourceType {
   UPLOAD
   AGENT
   CLOUD
+  CORRUPTED_DISK
+  RAID_ARRAY
+  SSD_NVME
+  MOBILE_DEVICE
+  MEMORY_DUMP
 }
 
 enum FileSystemType {
@@ -215,6 +236,19 @@ enum FileSystemType {
   HFS_PLUS
   APFS
   UNKNOWN
+}
+
+enum RecoverySource {
+  LOCAL_DISK
+  EXTERNAL_DISK
+  DISK_IMAGE
+  CLOUD_STORAGE
+  NETWORK_SHARE
+  MEMORY_DUMP
+  CORRUPTED_DISK
+  RAID_ARRAY
+  SSD_NVME
+  MOBILE_DEVICE
 }
 
 model DiskImage {
@@ -395,4 +429,398 @@ model Webhook {
   createdAt DateTime @default(now()) @db.Timestamp(0)
 
   @@index([tenantId])
+}
+
+// ========================================
+// CASE MANAGEMENT & EVIDENCE TABLES
+// ========================================
+
+model ForensicCase {
+  id             String     @id @default(cuid())
+  caseNumber     String     @unique @db.VarChar(100)
+  name           String     @db.VarChar(255)
+  description    String?    @db.Text
+  status         CaseStatus @default(OPEN)
+  priority       Priority   @default(MEDIUM)
+  tenantId       String
+  tenant         Tenant     @relation(fields: [tenantId], references: [id])
+  investigatorId String
+  tags           Json       @default("[]")
+  metadata       Json       @default("{}")
+  createdAt      DateTime   @default(now()) @db.Timestamp(0)
+  updatedAt      DateTime   @updatedAt @db.Timestamp(0)
+
+  evidence       Evidence[]
+  timelineEvents TimelineEvent[]
+  auditLogs      AuditLog[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([caseNumber])
+  @@index([createdAt])
+}
+
+enum CaseStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Evidence {
+  id              String         @id @default(cuid())
+  caseId          String
+  case            ForensicCase   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  filename        String         @db.VarChar(500)
+  description     String?        @db.Text
+  evidenceType    EvidenceType   @default(FILE)
+  filePath        String?        @db.Text
+  fileSize        BigInt?        @db.BigInt
+  hashMD5         String?        @db.VarChar(255)
+  hashSHA256      String?        @db.VarChar(255)
+  collectedBy     String         @db.VarChar(255)
+  collectedAt     DateTime       @db.Timestamp(0)
+  location        String?        @db.VarChar(500)
+  notes           String?        @db.Text
+  status          EvidenceStatus @default(COLLECTED)
+  chainOfCustody  Json           @default("[]")
+  metadata        Json           @default("{}")
+  createdAt       DateTime       @default(now()) @db.Timestamp(0)
+  updatedAt       DateTime       @updatedAt @db.Timestamp(0)
+
+  @@index([caseId])
+  @@index([evidenceType])
+  @@index([status])
+  @@index([collectedAt])
+}
+
+enum EvidenceType {
+  FILE
+  DISK_IMAGE
+  MEMORY_DUMP
+  NETWORK_CAPTURE
+  DOCUMENT
+  PHOTO
+  AUDIO
+  VIDEO
+  OTHER
+}
+
+enum EvidenceStatus {
+  COLLECTED
+  ANALYZING
+  ANALYZED
+  ARCHIVED
+  RETURNED
+  DESTROYED
+}
+
+// ========================================
+// CORRUPTED DISK RECOVERY TABLES
+// ========================================
+
+model CorruptedDiskAnalysis {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  driveModel        String?  @db.VarChar(255)
+  driveSerial       String?  @db.VarChar(255)
+  driveFirmware     String?  @db.VarChar(100)
+  smartStatus       String?  @db.VarChar(50)
+  reallocatedSectors Int     @default(0)
+  pendingSectors    Int      @default(0)
+  uncorrectableSectors Int   @default(0)
+  powerOnHours      Int?
+  temperature       Int?
+  healthStatus      String   @default("unknown") @db.VarChar(50)
+  badSectorMap      Json?
+  cloneProgress     Int      @default(0)
+  cloneStatus       String   @default("pending") @db.VarChar(50)
+  clonedImagePath   String?  @db.Text
+  analyzedAt        DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([jobId])
+  @@index([healthStatus])
+}
+
+model PartitionRecovery {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  partitionType     String   @db.VarChar(50)
+  originalMbr       Json?
+  recoveredMbr      Json?
+  originalGpt       Json?
+  recoveredGpt      Json?
+  partitionsFound   Int      @default(0)
+  partitionsRecovered Int    @default(0)
+  recoveryStatus    String   @default("pending") @db.VarChar(50)
+  recoveredAt       DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([jobId])
+  @@index([partitionType])
+}
+
+model FileSystemRepair {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  fileSystemType    String   @db.VarChar(50)
+  repairType        String   @db.VarChar(100)
+  originalState     Json?
+  repairedState     Json?
+  filesRecovered    Int      @default(0)
+  directoriesRecovered Int   @default(0)
+  repairStatus      String   @default("pending") @db.VarChar(50)
+  repairedAt        DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([jobId])
+  @@index([fileSystemType])
+}
+
+model RAIDConfiguration {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  raidLevel         String   @db.VarChar(50)
+  diskCount         Int
+  stripeSize        Int?
+  diskOrder         Json?
+  parityRotation    String?  @db.VarChar(100)
+  autoDetected      Boolean  @default(false)
+  assembled         Boolean  @default(false)
+  virtualArray      Boolean  @default(false)
+  assembledImagePath String? @db.Text
+  createdAt         DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([jobId])
+  @@index([raidLevel])
+}
+
+model SSDAnalysis {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  trimEnabled       Boolean?
+  wearLevelingCount  Int?
+  totalBytesWritten  BigInt? @db.BigInt
+  totalBytesRead     BigInt? @db.BigInt
+  mediaWearoutIndicator Int?
+  overProvisioningSize BigInt? @db.BigInt
+  garbageCollectionImpact String? @db.VarChar(100)
+  recoverabilityScore Int?
+  analyzedAt        DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([jobId])
+}
+
+// ========================================
+// ADVANCED FORENSICS TABLES
+// ========================================
+
+model TimelineEvent {
+  id                String   @id @default(cuid())
+  caseId            String
+  timestamp         DateTime @db.Timestamp(0)
+  eventType         String   @db.VarChar(100)
+  source            String   @db.VarChar(100)
+  description       String   @db.Text
+  filePath          String?  @db.Text
+  registryKey       String?  @db.Text
+  eventName         String?  @db.VarChar(255)
+  macb              String?  @db.VarChar(10)
+  evidenceId        String?  @db.VarChar(255)
+  metadata          Json?
+  createdAt         DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([caseId])
+  @@index([timestamp])
+  @@index([eventType])
+  @@index([source])
+}
+
+model RegistryArtifact {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  hiveName          String   @db.VarChar(100)
+  keyPath           String   @db.Text
+  valueName         String?  @db.VarChar(255)
+  valueType         String?  @db.VarChar(50)
+  valueData         String?  @db.Text
+  lastModified      DateTime? @db.Timestamp(0)
+  artifactType      String   @db.VarChar(100)
+  significance      String?  @db.VarChar(50)
+  extractedAt       DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([jobId])
+  @@index([artifactType])
+  @@index([hiveName])
+}
+
+model BrowserArtifact {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  browser           String   @db.VarChar(100)
+  artifactType      String   @db.VarChar(100)
+  url               String?  @db.Text
+  title             String?  @db.VarChar(500)
+  visitCount        Int      @default(0)
+  lastVisit         DateTime? @db.Timestamp(0)
+  filePath          String?  @db.Text
+  fileSize          BigInt?  @db.BigInt
+  metadata          Json?
+  extractedAt       DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([jobId])
+  @@index([browser])
+  @@index([artifactType])
+}
+
+model EmailArtifact {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  emailType         String   @db.VarChar(50)
+  sender            String?  @db.VarChar(255)
+  recipients        Json?
+  subject           String?  @db.VarChar(500)
+  date              DateTime? @db.Timestamp(0)
+  hasAttachments    Boolean  @default(false)
+  attachmentCount   Int      @default(0)
+  bodyPreview       String?  @db.Text
+  headers           Json?
+  isPhishing        Boolean  @default(false)
+  spamScore         Float?
+  extractedAt       DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([jobId])
+  @@index([sender])
+  @@index([date])
+  @@index([emailType])
+}
+
+model NetworkArtifact {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  artifactType      String   @db.VarChar(100)
+  protocol          String?  @db.VarChar(50)
+  sourceIP          String?  @db.VarChar(45)
+  destinationIP     String?  @db.VarChar(45)
+  sourcePort        Int?
+  destinationPort   Int?
+  timestamp         DateTime? @db.Timestamp(0)
+  payloadSize       BigInt?  @db.BigInt
+  extractedFiles    Json?
+  credentials       Json?
+  suspicious        Boolean  @default(false)
+  metadata          Json?
+  extractedAt       DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([jobId])
+  @@index([protocol])
+  @@index([artifactType])
+}
+
+model YaraScanResult {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  ruleName          String   @db.VarChar(255)
+  ruleFile          String?  @db.VarChar(500)
+  matchedFile       String   @db.VarChar(500)
+  matchedFilePath   String?  @db.Text
+  matchedFileSize   BigInt?  @db.BigInt
+  matches           Json?
+  severity          String   @db.VarChar(50)
+  description       String?  @db.Text
+  scannedAt         DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([jobId])
+  @@index([ruleName])
+  @@index([severity])
+}
+
+model IOCExtract {
+  id                String   @id @default(cuid())
+  caseId            String
+  iocType           String   @db.VarChar(100)
+  iocValue          String   @db.Text
+  source            String?  @db.VarChar(255)
+  sourcePath        String?  @db.Text
+  confidence        Int
+  firstSeen         DateTime? @db.Timestamp(0)
+  lastSeen          DateTime? @db.Timestamp(0)
+  relatedEvents     Json?
+  tags              Json?
+  createdAt         DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([caseId])
+  @@index([iocType])
+  @@index([iocValue])
+}
+
+model MemoryAnalysis {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  dumpType          String   @db.VarChar(100)
+  osVersion         String?  @db.VarChar(100)
+  architecture      String?  @db.VarChar(20)
+  processCount      Int      @default(0)
+  networkConnections Int     @default(0)
+  malwareDetections Int      @default(0)
+  cryptoKeys        Json?
+  clipboardData     String?  @db.Text
+  analysisPlugins   Json?
+  analyzedAt        DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([jobId])
+  @@index([dumpType])
+}
+
+model SteganalysisResult {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  filePath          String   @db.Text
+  fileName          String   @db.VarChar(500)
+  fileSize          BigInt   @db.BigInt
+  analysisMethod    String   @db.VarChar(100)
+  result            String   @db.VarChar(50)
+  confidence        Int
+  hiddenDataSize    BigInt?  @db.BigInt
+  details           Json?
+  analyzedAt        DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([jobId])
+  @@index([result])
+  @@index([analysisMethod])
+}
+
+model EncryptionDetection {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  volumePath        String   @db.Text
+  encryptionType    String?  @db.VarChar(100)
+  encrypted         Boolean  @default(false)
+  entropy           Float?
+  headerFound       Boolean  @default(false)
+  keyFound          Boolean  @default(false)
+  recoverable       Boolean  @default(false)
+  details           Json?
+  detectedAt        DateTime @default(now()) @db.Timestamp(0)
+  
+  @@index([jobId])
+  @@index([encryptionType])
 }
